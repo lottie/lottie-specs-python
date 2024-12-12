@@ -1,6 +1,10 @@
-from . import schema, type_info
+from . import schema, type_info, resources
 from .schema import Schema, SchemaPath
 from .type_info import TypeSystem
-from .resources import load_specs
+from .resources import load_specs, schema_path
 
-__all__ = ["schema", "Schema", "SchemaPath", "type_info", "TypeSystem", "load_specs"]
+__all__ = [
+    "schema", "Schema", "SchemaPath",
+    "type_info", "TypeSystem",
+    "resources", "load_specs", "schema_path"
+]
