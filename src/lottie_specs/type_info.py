@@ -86,6 +86,7 @@ class Property(Type):
     def __init__(self, type_system: TypeSystem, schema: Schema):
         super().__init__(type_system, schema)
         self.const = schema.get("const", None)
+        self.default = schema.get("default", None)
 
     def resolve_type(self, schema: Schema):
         if "oneOf" in schema:
