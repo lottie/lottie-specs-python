@@ -3,6 +3,10 @@ from .schema import Schema, SchemaPath
 
 
 class TypeSystem:
+    """
+    Type system view around the lottie schema
+    """
+
     def __init__(self, schema: Schema):
         self.types = {}
         self.modules = {}
@@ -28,6 +32,15 @@ class TypeSystem:
         return TypeSystem(schema_data)
 
     def resolve_type(self, schema: Schema):
+        """
+        Extracts type info from the schema's `type` or `$ref`
+
+        Returns:
+            * a string for builtin types (eg: `number`)
+            * a Type instance for complex types
+            * an array when there is the possibility for multiple types
+            * None if the type cannot be determined
+        """
         if "oneOf" in schema:
             local_type = schema.get("type", None)
             if local_type is not None:
@@ -37,8 +50,15 @@ class TypeSystem:
             return self.types[schema["$ref"]]
         return schema.get("type", None)
 
+    def __repr__(self):
+        return "<%s %s>" % (self.__class__.__name__, self.schema.get("$id"))
+
 
 class Type:
+    """
+    Base wrapper for type information
+    """
+
     def __init__(self, type_system: TypeSystem, schema: Schema):
         self.type_system = type_system
         self.schema = schema
@@ -54,8 +74,15 @@ class Type:
     def resolve(self):
         pass
 
+    def __repr__(self):
+        return "<%s %s %s>" % (self.__class__.__name__, self.schema.path, self.id)
+
 
 class Property(Type):
+    """
+    Represents a class data memeber
+    """
+
     def __init__(self, type_system: TypeSystem, schema: Schema):
         super().__init__(type_system, schema)
         self.const = schema.get("const", None)
@@ -79,6 +106,10 @@ class Property(Type):
 
 
 class Class(Type):
+    """
+    Class type, contains multiple properties and exposes inheritance
+    """
+
     def __init__(self, type_system: TypeSystem, schema: Schema):
         super().__init__(type_system, schema)
 
@@ -128,6 +159,10 @@ class Class(Type):
 
 
 class ConcreteClass(Type):
+    """
+    When a class has multiple subtypes this represents the type for the base class
+    """
+
     def __init__(self, type_system: TypeSystem, schema: Schema):
         super().__init__(type_system, schema)
         self.target_ref = self.ref.replace("/all-", "/")[:-1]
@@ -140,6 +175,10 @@ class ConcreteClass(Type):
 
 
 class EnumValue(Type):
+    """
+    Value within an Enum
+    """
+
     def __init__(self, type_system: TypeSystem, schema: Schema):
         super().__init__(type_system, schema)
         self.value = self.schema.get("const")
@@ -148,6 +187,10 @@ class EnumValue(Type):
 
 
 class Enum(Type):
+    """
+    Enumeration
+    """
+
     def __init__(self, type_system: TypeSystem, schema: Schema):
         super().__init__(type_system, schema)
         self.values = [
@@ -157,6 +200,10 @@ class Enum(Type):
 
 
 class Module(Type):
+    """
+    Logical module, contains multiple types
+    """
+
     def __init__(self, type_system: TypeSystem, schema: Schema):
         super().__init__(type_system, schema)
         self.types = {}
