@@ -95,10 +95,12 @@ class Property(Type):
     Represents a class data memeber
     """
 
-    def __init__(self, type_system: TypeSystem, schema: Schema):
+    def __init__(self, name: str, type_system: TypeSystem, schema: Schema):
         super().__init__(type_system, schema)
+        self.name = name
         self.const = schema.get("const", None)
         self.default = schema.get("default", None)
+        self.required = False
 
     def resolve_type(self, schema: Schema):
         if "oneOf" in schema:
@@ -135,6 +137,42 @@ class Property(Type):
         self.type = type
 
 
+class RequiredProperties:
+    """
+    Handles complex property requirements
+    """
+
+    def __init__(self, sets=None):
+        self.sets = sets or []
+
+    def add_set(self, data: set):
+        self.sets.append(data)
+
+    def merge(self, other: "RequiredProperties"):
+        if not self.sets:
+            self.sets = list(other.sets)
+            return
+        if not other.sets:
+            return
+
+        new_sets = []
+        for my_set in self.sets:
+            for other_set in other.sets:
+                if other_set:
+                    new_sets.append(my_set | other_set)
+
+        self.sets = new_sets
+
+    def is_simple(self):
+        return len(self.sets) < 1
+
+    def has(self, value):
+        if len(self.sets) == 1:
+            return value in self.sets
+        elif len(self.sets) == 0:
+            return False
+
+
 class Class(Type):
     """
     Class type, contains multiple properties and exposes inheritance
@@ -149,6 +187,7 @@ class Class(Type):
         self.derived = []
         self.concrete_descendants = []
         self.duplicate_props = collections.defaultdict(list)
+        self.required = RequiredProperties()
 
         if "allOf" in schema:
             for item in schema / "allOf":
@@ -172,21 +211,36 @@ class Class(Type):
                     list(value.schema.keys())[0] == "not"
                 ):
                     continue
-                prop = Property(self.type_system, value)
+                prop = Property(name, self.type_system, value)
                 if name in self.properties:
                     self.duplicate_props[name].append(prop)
                 else:
                     self.properties[name] = prop
+        self.required.merge(self.get_required(schema))
+
+    def get_required(self, schema):
+        required = RequiredProperties()
+        if "required" in schema:
+            required.merge(RequiredProperties([set(schema["required"])]))
+
+        if "if" in schema:
+            r1 = self.get_required(schema / "if")
+            r2 = self.get_required(schema / "else") if "else" in schema else RequiredProperties()
+            required.merge(RequiredProperties(r1.sets + r2.sets))
+
+        return required
 
     def resolve(self):
         for ref in self.base_refs:
             base = self.type_system.types[ref]
             self.bases.append(base)
             base.derived.append(self)
+            self.required.merge(base.required)
 
         for name, prop in self.properties.items():
             prop.resolve()
             prop.merge(self.duplicate_props[name])
+            prop.required = self.required.has(name)
 
     def all_properties(self, props=None):
         if props is None:
