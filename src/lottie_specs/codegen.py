@@ -49,6 +49,7 @@ class InternalDeps:
             for name, dependencies in deps.items():
                 dependencies = dependencies - resolved
                 if not dependencies:
+                    resolved.add(name)
                     yield name
                 else:
                     new_deps[name] = dependencies

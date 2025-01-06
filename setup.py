@@ -18,8 +18,14 @@ setup(
     python_requires=">=3.10, <4",
     scripts=[
     ],
+    extras_require={
+        "docs": ["markdown", "source_translator", "graphviz", "mkdocs"],
+    },
     project_urls={
         "Bug Reports": "https://github.com/lottie/lottie-spec-python/issues",
         "Source": "https://github.com/lottie/lottie-spec-python",
     },
+    # entry_points={
+        # "mkdocs.plugins": []
+    # }
 )
