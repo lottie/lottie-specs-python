@@ -17,15 +17,24 @@ setup(
     package_dir={"": "src"},
     python_requires=">=3.10, <4",
     scripts=[
+        "bin/render_shape.py",
+        "bin/schema-merge.py",
+        "bin/schema-validate.py",
     ],
     extras_require={
-        "docs": ["markdown", "source_translator", "graphviz", "mkdocs"],
+        "docs": [
+            "lxml==4.9.3",
+            "source_translator==1.0.0",
+            "graphviz==0.20.1",
+            "mkdocs==1.5.3",
+            "latex2mathml==3.77.0"
+        ],
     },
     project_urls={
         "Bug Reports": "https://github.com/lottie/lottie-spec-python/issues",
         "Source": "https://github.com/lottie/lottie-spec-python",
     },
     # entry_points={
-        # "mkdocs.plugins": []
+    #     "mkdocs.plugins": []
     # }
 )
