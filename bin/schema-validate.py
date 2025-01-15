@@ -87,6 +87,28 @@ class Validator:
         if version_string not in schema["$id"]:
             self.error(schema, "Mismatched URI version - expected: %s" % version_string)
 
+    def get_page(self, ref: str, name: str, html_path: pathlib.Path, file_cache: dict):
+        if name in file_cache:
+            return file_cache[name]
+        file = html_path / name / "index.html"
+        while True:
+            if not file.exists():
+                file_cache[name] = None
+                self.show_error("%s: Missing page %s" % (ref, name))
+                return None
+
+            dom = lxml.html.parse(str(file))
+
+            # Handle redirects
+            redirect = dom.xpath(".//meta[@http-equiv='refresh']/@content")
+            if redirect:
+                file = (file.parent / redirect[0].split("url=")[-1] / "index.html").resolve()
+                continue
+
+            page_data = dom.xpath(".//*[@id]/@id")
+            file_cache[name] = page_data
+            return page_data
+
     def check_links(self, html_path: pathlib.Path):
         checked = set()
         file_cache = {}
@@ -102,14 +124,8 @@ class Validator:
                 continue
             checked.add(key)
 
-            if link.page not in file_cache:
-                file = html_path / link.page / "index.html"
-                if not file.exists():
-                    self.show_error("%s: Missing page %s" % (ref, link.page))
-                    continue
-                file_cache[link.page] = lxml.html.parse(str(file)).xpath(".//*[@id]/@id")
-
-            if link.anchor not in file_cache[link.page]:
+            page_data = self.get_page(ref, link.page, html_path, file_cache)
+            if page_data and link.anchor not in page_data:
                 self.show_error("%s: Missing anchor %s.md %s" % (ref, link.page, link.anchor))
 
 
@@ -124,7 +140,10 @@ if __name__ == "__main__":
         default=root / "docs" / "lottie.schema.json"
     )
     parser.add_argument("--html", help="Path to the html to check links", type=pathlib.Path)
+    parser.add_argument("--ignore", "-i", help="refs to ignore", action="append", default=[])
     args = parser.parse_args()
+    for ignored in args.ignore:
+        unneeded_links.append(tuple(ignored.split("/")))
 
     with open(args.schema) as file:
         data = json.load(file)
