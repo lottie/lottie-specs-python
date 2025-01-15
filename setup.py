@@ -6,7 +6,8 @@ long_description = (here / "Readme.md").read_text(encoding="utf-8")
 
 setup(
     name="lottie_specs",
-    version="1.0.1",
+    # version="1.0.1",
+    version="0.1", # Dev version, until we release properly, after that sync with lottie-specs versioning
     description="Tools to load the Lottie standard specs",
     long_description=long_description,
     long_description_content_type="text/markdown",
@@ -24,6 +25,7 @@ setup(
     extras_require={
         "docs": [
             "lxml==4.9.3",
+            "html5lib==1.1",
             "source_translator==1.0.0",
             "graphviz==0.20.1",
             "mkdocs==1.5.3",

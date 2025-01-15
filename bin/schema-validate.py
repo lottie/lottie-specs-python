@@ -70,7 +70,9 @@ class Validator:
                 self.collect_defs(child)
 
     def check_version(self, schema: Schema):
-        version_number = schema["$version"]
+        version_number = schema.get("$version", None)
+        if version_number is None:
+            return
 
         major_version = version_number // 10000
         minor_version = (version_number % 10000) // 100

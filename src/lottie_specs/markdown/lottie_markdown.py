@@ -21,7 +21,7 @@ docs_path = Path(__file__).parent.parent / "docs"
 
 
 class ReferenceLink:
-    _link_mapping = None
+    link_mapping = {}
 
     def __init__(self, page, anchor, name, group=None, cls=None):
         self.group = group
@@ -31,7 +31,7 @@ class ReferenceLink:
         self.anchor = anchor or cls
 
     def url(self, md):
-        return get_url(md, "specs/%s.md" % self.page, self.anchor)
+        return get_url(md, DocsLink.docs_link_prefix + "%s.md" % self.page, self.anchor)
 
     def to_element(self, parent, md):
         type_text = etree.Element("a")
@@ -60,7 +60,7 @@ class ReferenceLink:
             name = name.replace(" Property", "")
 
         link = ReferenceLink(
-            group,
+            ReferenceLink.link_mapping.get(group, group),
             cls,
             name,
             group,
@@ -88,14 +88,14 @@ class SchemaLink(InlineProcessor):
 
     @staticmethod
     def element(md, path):
-        href = get_url(md, "specs/schema.md", "/$defs/" + path)
+        href = get_url(md, DocsLink.docs_link_prefix + "schema.md", "/$defs/" + path)
         element = etree.Element("a", {"href": href, "class": "schema-link"})
         element.text = "View Schema"
         return element
 
     @staticmethod
     def icon(md, path):
-        href = get_url(md, "specs/schema.md", "/$defs/" + path)
+        href = get_url(md, DocsLink.docs_link_prefix + "schema.md", "/$defs/" + path)
         element = etree.Element("a", {"href": href, "class": "schema-link"})
         element.attrib["title"] = "View Schema"
         element.append(etree_fontawesome("file-code"))
@@ -106,20 +106,22 @@ class SchemaLink(InlineProcessor):
 
 
 class DocsLink(InlineProcessor):
+    docs_link_prefix: str = ""
+
     def __init__(self, md, schema_data: type_info.TypeSystem):
         super().__init__(r'{link:([^:}]+)(?::([^:}]+))?}', md)
         self.schema_data = schema_data
 
     @staticmethod
     def element(md, path):
-        href = get_url(md, "specs/schema.md", "/$defs/" + path)
+        href = get_url(md, DocsLink.docs_link_prefix + "schema.md", "/$defs/" + path)
         element = etree.Element("a", {"href": href, "class": "schema-link"})
         element.text = "View Schema"
         return element
 
     @staticmethod
     def icon(md, path):
-        href = get_url(md, "specs/schema.md", "/$defs/" + path)
+        href = get_url(md, DocsLink.docs_link_prefix + "schema.md", "/$defs/" + path)
         element = etree.Element("a", {"href": href, "class": "schema-link"})
         element.attrib["title"] = "View Schema"
         element.append(etree_fontawesome("file-code"))
@@ -535,6 +537,19 @@ def etree_fromstring(raw_string):
         raise
 
 
+def etree_from_html_fragment(raw_string, verbose_errors=True):
+    try:
+        from html5lib import HTMLParser
+        frag = HTMLParser(namespaceHTMLElements=False).parseFragment(raw_string)
+        if not len(frag) or not isinstance(frag[0].tag, str):
+            raise ValueError("Invalid Html")
+        return frag[0]
+    except Exception:
+        if verbose_errors:
+            sys.stderr.write(raw_string + "\n")
+        raise
+
+
 class RawHTML(BlockProcessor):
     """
     Needlessly complex workaround to allow HTML-style headings `<h1>foo</h1>`
@@ -555,7 +570,10 @@ class RawHTML(BlockProcessor):
         raw_string = self.parser.md.htmlStash.rawHtmlBlocks[index]
         if not raw_string:
             return False
-        element = etree_fromstring(raw_string)
+        try:
+            element = etree_from_html_fragment(raw_string, False)
+        except Exception:
+            return False
 
         if element.tag not in self.tag_names:
             return False
@@ -719,7 +737,7 @@ class LottieBlock(BlockProcessor):
         super().__init__(md.parser)
 
     def test(self, parent, block):
-        return block.startswith("<lottie")
+        return block.startswith("<lottie ")
 
     def run(self, parent, blocks):
         raw_string = blocks.pop(0)
@@ -868,17 +886,19 @@ class LottiePlaygroundBuilder:
 
 
 class LottiePlayground(BlockProcessor):
+    tag_name = "lottie-playground"
+
     def __init__(self, md, schema_data: type_info.TypeSystem):
         self.md = md
         self.schema_data = schema_data
         super().__init__(md.parser)
 
     def test(self, parent, block):
-        return block.startswith("<lottie-playground")
+        return block.startswith("<" + self.tag_name)
 
     def run(self, parent, blocks):
         raw_string = blocks.pop(0)
-        md_element: etree.Element = etree_fromstring(raw_string)
+        md_element: etree.Element = etree_from_html_fragment(raw_string)
 
         md_title = md_element.find("./title")
         if md_title is not None:
@@ -895,6 +915,9 @@ class LottiePlayground(BlockProcessor):
         md_form = md_element.find("./form")
         if md_form is not None:
             for input in md_form:
+                if input.tag == "th":
+                    builder.add_control(input.text, None)
+                    continue
                 if not input.attrib.get("title", ""):
                     input.attrib["title"] = input.attrib["name"]
                 elif not input.attrib.get("name", ""):
@@ -905,7 +928,7 @@ class LottiePlayground(BlockProcessor):
         json_parent = etree.SubElement(builder.player_container, "div")
         json_parent.attrib["class"] = "json-parent"
         json_viewer_id = self.add_json_viewer(builder, json_parent)
-        json_viewer_path = md_json.text
+        json_viewer_path = md_json.text if md_json is not None else None
         #
         # filename = element.attrib.pop("src")
         # lottie_url = get_url(self.md, filename)
@@ -923,7 +946,7 @@ class LottiePlayground(BlockProcessor):
 
         example_id = md_element.attrib.pop("example")
         json_data = self.example_json(example_id)
-        extra = json.dumps(md_element.attrib)
+        extra = md_element.attrib
         md_script = md_element.find("./script")
         self.populate_script(md_script, builder, json_data, extra, json_viewer_id, json_viewer_path)
 
@@ -962,7 +985,7 @@ class LottiePlayground(BlockProcessor):
             json_viewer_id=json_viewer_id,
             on_load=script,
             json_data=json_data,
-            extra_options=extra_options,
+            extra_options=json.dumps(extra_options),
             post_script=builder.post_script,
         ))
 
@@ -1087,7 +1110,7 @@ def pop_script_block(block_processor, blocks):
             lines = raw_string.strip().split("\n")
             source = "\n".join(lines[1:-1])
 
-            script_element = etree_fromstring(lines[0] + lines[-1])
+            script_element = etree_from_html_fragment(lines[0] + lines[-1])
             script_element.text = source
             block_processor.parser.md.htmlStash.rawHtmlBlocks.pop(index)
             block_processor.parser.md.htmlStash.rawHtmlBlocks.insert(index, '')
@@ -1249,13 +1272,20 @@ class Algorithm(BlockProcessor):
 class LottieExtension(Extension):
     def __init__(self, **kwargs):
         self.config = {
-            "docs_path": ["./docs", "Root path to the docs"]
+            "docs_path": ["./docs", "Root path to the docs"],
+            "docs_link_prefix": ["specs/", "Prefix to docs links"],
+            "link_mapping": [{}, "Link mapping"],
+            "avoid_grabby_html": [["lottie", "lottie-playground", "algorithm"], "Avoid these elements from being processed by weird markdown tree processors"],
         }
         super().__init__(**kwargs)
 
     def extendMarkdown(self, md: Markdown):
         md.docs_path = Path(self.getConfig("docs_path")).resolve()
-        ts = typed_schema(Schema.load(md.docs_path / "lottie.schema.json"))
+        md.lottie_schema = Schema.load(md.docs_path / "lottie.schema.json")
+        ts = typed_schema(md.lottie_schema)
+        md.lottie_ts = ts
+        DocsLink.docs_link_prefix = self.getConfig("docs_link_prefix")
+        ReferenceLink.link_mapping = self.getConfig("link_mapping")
 
         md.inlinePatterns.register(SchemaString(md, ts.schema), "schema_string", 175)
         md.inlinePatterns.register(JsonFile(md, ts), "json_file", 175)
@@ -1273,7 +1303,7 @@ class LottieExtension(Extension):
         md.parser.blockprocessors.register(
             RawHTML(
                 md.parser,
-                ["lottie", "lottie-playground", "algorithm"]
+                self.getConfig("avoid_grabby_html")
             ),
             "raw_heading",
             100
