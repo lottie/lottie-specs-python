@@ -378,6 +378,8 @@ class SchemaObject(BlockProcessor):
 
 
 class SchemaInheritance(InlineProcessor):
+    has_warned = False
+
     def __init__(self, md, schema_data: type_info.TypeSystem):
         super().__init__(r'^\s*\{schema_inheritance:([^}]+)\}\s*(?:\n|$)', md)
         self.schema_data = schema_data
@@ -424,12 +426,20 @@ class SchemaInheritance(InlineProcessor):
         return cls.id
 
     def inheritance_graph(self, cls: type_info.Class):
-        graph = graphviz.Digraph()
-        graph.attr(rankdir="LR")
+        try:
+            graph = graphviz.Digraph()
+            graph.attr(rankdir="LR")
 
-        self.add_object(graph, cls, True, True, True)
+            self.add_object(graph, cls, True, True, True)
 
-        return self.graph_to_etree(graph)
+            return self.graph_to_etree(graph)
+        except Exception:
+            if not SchemaInheritance.has_warned:
+                import logging
+                # "mkdocs." to get the same format as other logs
+                logging.getLogger("mkdocs." + __name__).warning("graphviz not installed")
+                SchemaInheritance.has_warned = True
+            return etree.Element("div")
 
     def handleMatch(self, match, data):
         object_name = match.group(1)
