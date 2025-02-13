@@ -18,6 +18,7 @@ setup(
     package_dir={"": "src"},
     python_requires=">=3.10, <4",
     scripts=[
+        "bin/enumerate-props.py",
         "bin/render_shape.py",
         "bin/schema-merge.py",
         "bin/schema-validate.py",
