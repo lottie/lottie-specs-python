@@ -27,7 +27,7 @@ setup(
         "docs": [
             "lxml==4.9.3",
             "html5lib==1.1",
-            "source_translator==1.0.0",
+            "source_translator==1.0.1",
             "graphviz==0.20.1",
             "mkdocs==1.5.3",
             "latex2mathml==3.77.0"
