@@ -747,10 +747,12 @@ class LottieBlock(BlockProcessor):
         super().__init__(md.parser)
 
     def test(self, parent, block):
-        return block.startswith("<lottie ")
+        return block.startswith("<lottie ") or block.startswith("{lottie ")
 
     def run(self, parent, blocks):
         raw_string = blocks.pop(0)
+        if raw_string.startswith("{"):
+            raw_string = raw_string.replace("{", "<").replace("}", "/>")
         md_element = etree_fromstring(raw_string)
         filename = md_element.attrib.pop("src")
         width = md_element.attrib.pop("width", None)
