@@ -34,7 +34,7 @@ setup(
         ],
         "render": [
             "lottie==0.7.2",
-            "source_translator==1.0.1",
+            "source_translator==1.1.0",
         ],
     },
     project_urls={
