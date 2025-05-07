@@ -90,7 +90,7 @@ def render_modifier(func, args):
     return anim
 
 
-def main(argv):
+def get_code(argv):
     if argv.docs:
         code = None
         with open(argv.docs) as f:
@@ -104,7 +104,8 @@ def main(argv):
                 elif code is not None:
                     code += line
         if code is None:
-            return
+            print("Function %s not found" % argv.func, file=sys.stderr)
+            sys.exit(1)
     elif argv.input:
         with open(argv.input) as f:
             code = f.read()
@@ -112,12 +113,20 @@ def main(argv):
         print("Type code (end with ^D)")
         code = sys.stdin.read()
 
+    data = SourceCode(code)
+
     if argv.view_code:
-        data = code_to_samples(code)
-        print(data[argv.view_code])
-        parsed = data["ast"]
-    else:
-        parsed = SourceCode(code).ast
+        if argv.view_code == "py":
+            print(code)
+        else:
+            from source_translator.language_slug import slug_to_lang
+            print(slug_to_lang(argv.view_code).convert(data))
+
+    return data.ast
+
+
+def main(argv):
+    parsed = get_code(argv)
 
     local = {}
     exec(compile(parsed, "", "exec"), exec_globals, local)

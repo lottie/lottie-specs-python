@@ -4,6 +4,12 @@ Lottie Specs
 Python bindings for the Lottie specs
 
 
+### Links
+
+* Source: https://github.com/lottie/lottie-specs-python
+* PyPI: https://pypi.org/project/lottie-specs/
+
+
 ### Building Packages
 
 ```bash

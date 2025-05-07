@@ -1,2 +1,4 @@
 lottie==0.7.2
 source_translator==1.0.1
+build
+twine
