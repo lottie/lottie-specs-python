@@ -512,6 +512,7 @@ class SubTypeTable(InlineProcessor):
     """
     Table of links for `ty` values based on a `all-*s` schema
     """
+
     def __init__(self, md, schema_data: type_info.TypeSystem):
         super().__init__(r'\{schema_subtype_table:(?P<path>[^:}]+):(?P<attribute>[^:}]+)\}', md)
         self.schema_data = schema_data

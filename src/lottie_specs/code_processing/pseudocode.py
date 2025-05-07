@@ -69,7 +69,7 @@ class PseudoCode(AstTranslator):
             self.push_code(line)
 
     def expression_statement(self, expr):
-        if " " in expr or "$" in expr:
+        if "$" in expr:
             self.push_code(expr)
         else:
             self.push_code("$%s$" % expr)
@@ -113,7 +113,7 @@ class PseudoCode(AstTranslator):
             code += " $"
         else:
             code += r"\left("
-        code += ", ".join(args)
+        code += ",".join(args)
         if is_sentence:
             code += "$"
         else:
@@ -168,6 +168,9 @@ class PseudoCode(AstTranslator):
             else:
                 self.push_code("$%s \\coloneq %s$" % (target, value))
 
+    def assign_op(self, target, op, value):
+        self.push_code("$%s \\coloneq %s$" % (target, self.expr_binop(op, target, value)))
+
     def function_def(self, name, args, returns, body, is_async, is_method, is_getter):
         self.push_code(self.snake_sentence(name, True))
 
@@ -217,3 +220,7 @@ class PseudoCode(AstTranslator):
 
     def convert_line_comment(self, comment):
         return comment or ""
+
+    def return_statement(self, value):
+        if value is not None:
+            self.push_code("Return $%s$" % value)
