@@ -724,7 +724,7 @@ class LottieRenderer:
 
 
 def get_page_processor(md):
-    return next(proc for proc in md.treeprocessors if proc.__class__.__module__ == 'mkdocs.structure.pages')
+    return next(proc for proc in md.treeprocessors if hasattr(proc, "files"))
 
 
 def get_url(md, path, anchor=None, src_uri=True):
@@ -1235,6 +1235,8 @@ class RfcLink(InlineProcessor):
 
 
 class Algorithm(BlockProcessor):
+    default_lang = "py"
+
     def test(self, parent, block):
         return block.startswith("<algorithm")
 
@@ -1264,22 +1266,12 @@ class Algorithm(BlockProcessor):
         return True
 
     def render_code(self, parent, index, language, code, selector):
-        if language == "pseudo":
-            self.render_pseudocode(parent, code)
-        else:
-            pre = etree.SubElement(parent, "pre", {"style": "display: none"})
-            etree.SubElement(pre, "code", {"class": "language-%s hljs" % language}).text = AtomicString(code)
+        pre = etree.SubElement(parent, "pre", {"style": "display: none"} if language != self.default_lang else {})
+        etree.SubElement(pre, "code", {"class": "language-%s hljs" % language}).text = AtomicString(code)
 
         option = etree.SubElement(selector, "option")
         option.attrib["value"] = str(index)
         option.text = language_names[language]
-
-    def render_pseudocode(self, parent, pseudo: str):
-        pre = etree.SubElement(parent, "pre")
-        for line in pseudo.splitlines():
-            span = etree.SubElement(pre, "span")
-            span.text = line
-            span.tail = "\n"
 
 
 class LottieExtension(Extension):

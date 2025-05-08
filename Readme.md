@@ -15,7 +15,6 @@ Python bindings for the Lottie specs
 ```bash
 pip install build twine
 
-python3 -m build --sdist
-python3 -m build --wheel
+python3 -m build --sdist --wheel
 twine upload dist/*
 ```
