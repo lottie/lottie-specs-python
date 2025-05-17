@@ -125,20 +125,36 @@ def get_code(argv):
     return data.ast
 
 
+def prompt(name, type, default, no_prompt):
+    if no_prompt:
+        return default
+
+    msg = name
+    if type != "":
+        msg += " [%s]" % type
+
+    msg += " (%s)" % default
+
+    sys.stdout.write(msg)
+    sys.stdout.flush()
+    return sys.stdin.readline().strip()
+
+
 def main(argv):
     parsed = get_code(argv)
 
     local = {}
     exec(compile(parsed, "", "exec"), exec_globals, local)
 
+    if argv.no_render:
+        return
+
     default_func = next(iter(local.keys()))
 
     if argv.func is not None:
         func_name = argv.func
     else:
-        sys.stdout.write("Function name [%s]: " % default_func)
-        sys.stdout.flush()
-        func_name = sys.stdin.readline().strip()
+        func_name = prompt("Function name", "", default_func, argv.no_prompt)
 
     func = local[func_name or default_func]
 
@@ -160,18 +176,14 @@ def main(argv):
         if arg in given_args:
             value_raw = given_args[arg]
         else:
-            sys.stdout.write("%s (%s) [%s]: " % (arg, typename, value))
-            sys.stdout.flush()
-            value_raw = sys.stdin.readline().strip()
+            value_raw = prompt(arg, typename, str(value).strip("[]"), argv.no_prompt)
         if value_raw:
             value = annot(*eval("[%s]" % value_raw))
         args.append(value)
 
     mode = argv.mode
     if mode is None:
-        sys.stdout.write("Render mode (shape|modifier) [shape]: ")
-        sys.stdout.flush()
-        mode = sys.stdin.readline().strip()
+        mode = prompt("Render mode", "shape|modifier", "shape", argv.no_prompt)
 
     if mode == "modifier":
         anim = render_modifier(func, args)
@@ -186,8 +198,10 @@ parser = argparse.ArgumentParser()
 parser.add_argument("--docs", "-d", help="Docs file for the code input")
 parser.add_argument("--input", "-i", help="File for the code input")
 parser.add_argument("--func", "-f", default=None, help="Function name")
+parser.add_argument("--no-prompt", "-np", action="store_true", help="Use default arguments, do not prompt")
+parser.add_argument("--no-render", "-nr", action="store_true", help="Do not render the html")
 parser.add_argument("--args", "-a", nargs="+", help="Argument values for the function")
-parser.add_argument("--view-code", "-c", metavar="lang", help="Display rendered code")
+parser.add_argument("--view-code", "-c", "-x", metavar="lang", help="Display rendered code")
 parser.add_argument("--output", "-o", type=pathlib.Path, default=pathlib.Path("/tmp/out.html"))
 parser.add_argument("--mode", "-m", choices=["shape", "modifier"], default=None)
 
