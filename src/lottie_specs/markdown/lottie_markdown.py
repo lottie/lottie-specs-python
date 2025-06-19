@@ -898,19 +898,58 @@ class LottiePlaygroundBuilder:
             input.attrib["style"] = "width: 100%"
 
 
-class LottiePlayground(BlockProcessor):
-    tag_name = "lottie-playground"
-
-    def __init__(self, md, schema_data: type_info.TypeSystem):
-        self.md = md
+class LottiePlaygroundBase:
+    def __init__(self, schema_data: type_info.TypeSystem):
         self.schema_data = schema_data
-        super().__init__(md.parser)
 
-    def test(self, parent, block):
-        return block.startswith("<" + self.tag_name)
+    def example_json(self, filename):
+        """
+        Returns minified JSON string
+        """
+        with open(self.md.docs_path / "static" / "examples" / filename) as file:
+            return json.dumps(json.load(file))
 
-    def run(self, parent, blocks):
-        raw_string = blocks.pop(0)
+    def populate_script(self, md_element, builder, json_data, extra_options, json_viewer_id, json_viewer_path):
+        # <script> are gobbled up by a preprocessor
+        script_element = md_element.find("./script")
+        script = ""
+        if script_element is not None:
+            script = script_element.text
+
+        if json_viewer_path:
+            script += "this.json_viewer_contents = %s;" % json_viewer_path
+
+        builder.renderer.populate_script("""
+        var lottie_player_{id} = new PlaygroundPlayer(
+            {id},
+            '{json_viewer_id}',
+            'lottie_target_{id}',
+            {json_data},
+            function (lottie, data)
+            {{
+                {on_load}
+            }},
+            {extra_options}
+        );{post_script}
+        """.format(
+            id=builder.anim_id,
+            json_viewer_id=json_viewer_id,
+            on_load=script,
+            json_data=json_data,
+            extra_options=json.dumps(extra_options),
+            post_script=builder.post_script,
+        ))
+
+    def add_json_viewer(self, builder, parent):
+        code_viewer_id = builder.control_id()
+        parent.attrib["id"] = code_viewer_id + "_parent"
+
+        pre = etree.SubElement(parent, "pre")
+        code = etree.SubElement(pre, "code", {"id": code_viewer_id, "class": "language-json hljs"})
+        code.text = ""
+        return code_viewer_id
+
+    def make_element(self, parent, raw_string):
         md_element: etree.Element = etree_from_html_fragment(raw_string)
 
         md_title = md_element.find("./title")
@@ -960,56 +999,24 @@ class LottiePlayground(BlockProcessor):
         example_id = md_element.attrib.pop("example")
         json_data = self.example_json(example_id)
         extra = md_element.attrib
-        md_script = md_element.find("./script")
-        self.populate_script(md_script, builder, json_data, extra, json_viewer_id, json_viewer_path)
+        self.populate_script(md_element, builder, json_data, extra, json_viewer_id, json_viewer_path)
 
+
+class LottiePlayground(BlockProcessor, LottiePlaygroundBase):
+    tag_name = "lottie-playground"
+
+    def __init__(self, md, schema_data: type_info.TypeSystem):
+        self.md = md
+        BlockProcessor.__init__(self, md.parser)
+        LottiePlaygroundBase.__init__(self, schema_data)
+
+    def test(self, parent, block):
+        return block.startswith("<" + self.tag_name)
+
+    def run(self, parent, blocks):
+        raw_string = blocks.pop(0)
+        self.make_element(parent, raw_string)
         return True
-
-    def example_json(self, filename):
-        """
-        Returns minified JSON string
-        """
-        with open(self.md.docs_path / "static" / "examples" / filename) as file:
-            return json.dumps(json.load(file))
-
-    def populate_script(self, script_element, builder, json_data, extra_options, json_viewer_id, json_viewer_path):
-        # <script> are gobbled up by a preprocessor
-        script = ""
-        if script_element is not None:
-            script = script_element.text
-
-        if json_viewer_path:
-            script += "this.json_viewer_contents = %s;" % json_viewer_path
-
-        builder.renderer.populate_script("""
-        var lottie_player_{id} = new PlaygroundPlayer(
-            {id},
-            '{json_viewer_id}',
-            'lottie_target_{id}',
-            {json_data},
-            function (lottie, data)
-            {{
-                {on_load}
-            }},
-            {extra_options}
-        );{post_script}
-        """.format(
-            id=builder.anim_id,
-            json_viewer_id=json_viewer_id,
-            on_load=script,
-            json_data=json_data,
-            extra_options=json.dumps(extra_options),
-            post_script=builder.post_script,
-        ))
-
-    def add_json_viewer(self, builder, parent):
-        code_viewer_id = builder.control_id()
-        parent.attrib["id"] = code_viewer_id + "_parent"
-
-        pre = etree.SubElement(parent, "pre")
-        code = etree.SubElement(pre, "code", {"id": code_viewer_id, "class": "language-json hljs"})
-        code.text = ""
-        return code_viewer_id
 
 
 def css_style(**args):
