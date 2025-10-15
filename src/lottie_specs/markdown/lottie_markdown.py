@@ -901,6 +901,7 @@ class LottiePlaygroundBuilder:
 class LottiePlaygroundBase:
     def __init__(self, schema_data: type_info.TypeSystem):
         self.schema_data = schema_data
+        self.button_schema = []
 
     def example_json(self, filename):
         """
@@ -1001,14 +1002,39 @@ class LottiePlaygroundBase:
         extra = md_element.attrib
         self.populate_script(md_element, builder, json_data, extra, json_viewer_id, json_viewer_path)
 
+        self.make_buttons(builder.element, builder.anim_id)
+
+    def make_buttons(self, parent, id):
+        if not self.button_schema:
+            return
+
+        buttons = etree.SubElement(parent, "div")
+        buttons.attrib["class"] = "buttons"
+
+        for schema in self.button_schema:
+            button = etree.SubElement(buttons, "button")
+            icon_id = schema.get("icon", None)
+            if icon_id:
+                icon = etree.SubElement(button, "i")
+                icon.attrib["class"] = icon_id
+                icon.attrib["title"] = schema["title"]
+            else:
+                button.text = schema["title"]
+
+            button.attrib["onclick"] = "let player = lottie_player_{id}; {handler}".format(
+                id=id,
+                handler=schema["action"],
+            )
+
 
 class LottiePlayground(BlockProcessor, LottiePlaygroundBase):
     tag_name = "lottie-playground"
 
-    def __init__(self, md, schema_data: type_info.TypeSystem):
+    def __init__(self, md, button_schema, schema_data: type_info.TypeSystem):
         self.md = md
         BlockProcessor.__init__(self, md.parser)
         LottiePlaygroundBase.__init__(self, schema_data)
+        self.button_schema = button_schema
 
     def test(self, parent, block):
         return block.startswith("<" + self.tag_name)
@@ -1288,6 +1314,7 @@ class LottieExtension(Extension):
             "docs_link_prefix": ["specs/", "Prefix to docs links"],
             "link_mapping": [{}, "Link mapping"],
             "avoid_grabby_html": [["lottie", "lottie-playground", "algorithm"], "Avoid these elements from being processed by weird markdown tree processors"],
+            "playground_buttons": [[], "Playground buttons"],
         }
         super().__init__(**kwargs)
 
@@ -1320,7 +1347,7 @@ class LottieExtension(Extension):
             "raw_heading",
             100
         )
-        md.parser.blockprocessors.register(LottiePlayground(md, ts), "lottie-playground", 200)
+        md.parser.blockprocessors.register(LottiePlayground(md, self.getConfig("playground_buttons"), ts), "lottie-playground", 200)
         md.parser.blockprocessors.register(LottieBlock(md), "lottie", 175)
         md.parser.blockprocessors.register(SchemaObject(md, ts), "schema_object", 175)
         md.parser.blockprocessors.register(SchemaEnum(md, ts), "schema_enum", 175)
